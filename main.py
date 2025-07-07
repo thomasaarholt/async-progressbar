@@ -81,7 +81,6 @@ class NotebookProgressBar:
         suffix: str = "",
         decimals: int = 1,
         length: int | None = None,
-        fill: str = "█",
     ):
         from ipywidgets import Output, FloatProgress, Label, HBox
         from IPython.display import display
@@ -90,7 +89,6 @@ class NotebookProgressBar:
         self.suffix = suffix
         self.decimals = decimals
         self.length = length if length is not None else 100
-        self.fill = fill
         self.progress = 0
         self.output: Output = Output()
         with self.output:
@@ -136,7 +134,7 @@ class AsyncProgressBar:
         fill: str = "█",
     ):
         if use_ipywidgets_progressbar():
-            self._impl = NotebookProgressBar(total, prefix, suffix, decimals, length, fill)
+            self._impl = NotebookProgressBar(total, prefix, suffix, decimals, length)
         else:
             self._impl = TerminalProgressBar(total, prefix, suffix, decimals, length, fill)
 
@@ -151,8 +149,6 @@ class AsyncProgressBar:
 
 if __name__ == "__main__":
 
-    rate_limiter = AsyncLimiter(5, 1)  # Limit to 1 request every 3 seconds
-
     progressbar1 = AsyncProgressBar(100)
     progressbar2 = AsyncProgressBar(100)
 
@@ -162,10 +158,9 @@ if __name__ == "__main__":
 
 
     async def request(i: int):
-        async with rate_limiter:
-            await progressbar1.update(5)
-            await asyncio.sleep(3 * random.random())
-            await progressbar2.update(5)
+        await progressbar1.update(5)
+        await asyncio.sleep(3 * random.random())
+        await progressbar2.update(5)
 
 
     async def main():
