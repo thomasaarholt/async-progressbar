@@ -1,22 +1,23 @@
 from __future__ import annotations
-
+from typing import Iterable, Iterator, TypeVar, Optional, Sized
 import random
 import sys
 import asyncio
 from aiolimiter import AsyncLimiter
 import shutil
 
+
 def use_ipywidgets_progressbar() -> bool:
     try:
         from IPython.core.getipython import get_ipython
+
         shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
+        if shell == "ZMQInteractiveShell":
             return True
         else:
             return False
     except NameError:
         return False
-
 
 
 class TerminalProgressBar:
@@ -37,7 +38,7 @@ class TerminalProgressBar:
         self.decimals = decimals
         if length is None:
             term_size = shutil.get_terminal_size()
-            reserved = len(prefix) + len(suffix) + 10
+            reserved = len(prefix) + len(suffix) + 1 + 10
             self.length = max(10, term_size.columns - reserved)
         else:
             self.length = length
@@ -46,7 +47,7 @@ class TerminalProgressBar:
         self._bar_line = TerminalProgressBar._terminal_bar_count
         TerminalProgressBar._terminal_bar_count += 1
 
-    async def update(self, progress: int):
+    async def update(self, progress: int = 1):
         self.progress += progress
         await self.draw()
 
@@ -58,7 +59,9 @@ class TerminalProgressBar:
         bar = self.fill * filled_length + "-" * (self.length - filled_length)
         if self._bar_line is not None:
             sys.stdout.write("\0337")
-            sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A")
+            sys.stdout.write(
+                f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A"
+            )
             sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}% {self.suffix}\033[K")
             sys.stdout.write("\0338")
             sys.stdout.flush()
@@ -68,9 +71,15 @@ class TerminalProgressBar:
 
     async def finish(self):
         if self._bar_line is not None:
-            sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}B")
+            sys.stdout.write(
+                f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}B"
+            )
         sys.stdout.write("\n")
         sys.stdout.flush()
+
+    async def reset(self):
+        self.progress = 0
+        await self.draw()
 
 
 class NotebookProgressBar:
@@ -84,6 +93,7 @@ class NotebookProgressBar:
     ):
         from ipywidgets import Output, FloatProgress, Label, HBox
         from IPython.display import display
+
         self.total = total
         self.prefix = prefix
         self.suffix = suffix
@@ -108,7 +118,7 @@ class NotebookProgressBar:
             display(self.widget)
         display(self.output)
 
-    async def update(self, progress: int):
+    async def update(self, progress: int = 1):
         self.progress += progress
         self.progress_bar.value = self.progress
         self.textbox.value = f"{self.progress_bar.value} / {self.total}"
@@ -120,9 +130,20 @@ class NotebookProgressBar:
     async def finish(self):
         pass  # Optionally update style or finalize
 
+    async def reset(self):
+        self.progress = 0
+        self.progress_bar.value = 0
+        self.textbox.value = f"0 / {self.total}"
+        await self.draw()
+
 
 class AsyncProgressBar:
-    """A simple async progress bar (delegates to terminal or notebook implementation)."""
+    """
+    A simple async progress bar (delegates to terminal or notebook implementation).
+
+    This class provides a unified async progress bar interface for both terminal and Jupyter environments.
+    It automatically selects the appropriate implementation based on the environment.
+    """
 
     def __init__(
         self,
@@ -132,41 +153,69 @@ class AsyncProgressBar:
         decimals: int = 1,
         length: int | None = None,
         fill: str = "█",
+        minimum_interval: float = 0.1,
     ):
+        """
+        Initialize the AsyncProgressBar.
+
+        Args:
+            total (int): The total number of items to track.
+            prefix (str, optional): Prefix string for the progress bar. Defaults to "".
+            suffix (str, optional): Suffix string for the progress bar. Defaults to "".
+            decimals (int, optional): Number of decimals to display for percentage. Defaults to 1.
+            length (int | None, optional): Length of the progress bar. Defaults to None (auto).
+            fill (str, optional): Character to use for the filled part of the bar. Defaults to "█".
+        """
         if use_ipywidgets_progressbar():
             self._impl = NotebookProgressBar(total, prefix, suffix, decimals, length)
         else:
-            self._impl = TerminalProgressBar(total, prefix, suffix, decimals, length, fill)
+            self._impl = TerminalProgressBar(
+                total, prefix, suffix, decimals, length, fill
+            )
 
-    async def update(self, progress: int):
+    async def update(self, progress: int = 1):
+        """
+        Update the progress bar by a given amount.
+
+        Args:
+            progress (int, optional): Amount to increment the progress. Defaults to 1.
+        """
         await self._impl.update(progress)
 
     async def draw(self):
+        """
+        Redraw the progress bar (force update of the display).
+        """
         await self._impl.draw()
 
     async def finish(self):
+        """
+        Mark the progress bar as finished (finalize display).
+        """
         await self._impl.finish()
 
-if __name__ == "__main__":
+    async def reset(self):
+        """
+        Reset the progress bar to its initial state.
+        """
+        await self._impl.reset()
 
+
+if __name__ == "__main__":
     progressbar1 = AsyncProgressBar(100)
     progressbar2 = AsyncProgressBar(100)
 
     # Reserve lines for the two progress bars at the start (after bars are created)
-    # Reserve lines for the two progress bars at the start (after bars are created)
     print("\n" * (TerminalProgressBar._terminal_bar_count))
 
-
     async def request(i: int):
-        await progressbar1.update(5)
-        await asyncio.sleep(3 * random.random())
-        await progressbar2.update(5)
-
+        await progressbar1.update(1)
+        await asyncio.sleep(random.random())
+        await progressbar2.update(1)
 
     async def main():
         requests = [request(i) for i in range(20)]
         await asyncio.gather(*requests)
-
 
     if __name__ == "__main__":
         asyncio.run(main())
