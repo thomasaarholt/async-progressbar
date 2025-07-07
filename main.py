@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Iterable, Iterator, TypeVar, Optional, Sized
 import random
 import sys
 import asyncio
@@ -31,6 +30,7 @@ class TerminalProgressBar:
         decimals: int = 1,
         length: int | None = None,
         fill: str = "█",
+        minimum_interval: float = 0.1,
     ):
         self.total = total
         self.prefix = prefix
@@ -38,7 +38,7 @@ class TerminalProgressBar:
         self.decimals = decimals
         if length is None:
             term_size = shutil.get_terminal_size()
-            reserved = len(prefix) + len(suffix) + 1 + 10
+            reserved = len(prefix) + len(suffix) + 12
             self.length = max(10, term_size.columns - reserved)
         else:
             self.length = length
@@ -46,10 +46,20 @@ class TerminalProgressBar:
         self.progress = 0
         self._bar_line = TerminalProgressBar._terminal_bar_count
         TerminalProgressBar._terminal_bar_count += 1
+        self._last_update_time = 0.0
+        self._minimum_interval = minimum_interval
 
     async def update(self, progress: int = 1):
+        import time
+
         self.progress += progress
-        await self.draw()
+        now = time.time()
+        if (
+            now - self._last_update_time >= self._minimum_interval
+            or self.progress >= self.total
+        ):
+            await self.draw()
+            self._last_update_time = now
 
     async def draw(self):
         percent = ("{0:." + str(self.decimals) + "f}").format(
@@ -79,6 +89,7 @@ class TerminalProgressBar:
 
     async def reset(self):
         self.progress = 0
+        self._last_update_time = 0.0
         await self.draw()
 
 
@@ -90,6 +101,7 @@ class NotebookProgressBar:
         suffix: str = "",
         decimals: int = 1,
         length: int | None = None,
+        minimum_interval: float = 0.1,
     ):
         from ipywidgets import Output, FloatProgress, Label, HBox
         from IPython.display import display
@@ -101,6 +113,8 @@ class NotebookProgressBar:
         self.length = length if length is not None else 100
         self.progress = 0
         self.output: Output = Output()
+        self._last_update_time = 0.0
+        self._minimum_interval = minimum_interval
         with self.output:
             self.output.clear_output(wait=True)
             self.progress_bar = FloatProgress(
@@ -167,10 +181,12 @@ class AsyncProgressBar:
             fill (str, optional): Character to use for the filled part of the bar. Defaults to "█".
         """
         if use_ipywidgets_progressbar():
-            self._impl = NotebookProgressBar(total, prefix, suffix, decimals, length)
+            self._impl = NotebookProgressBar(
+                total, prefix, suffix, decimals, length, minimum_interval
+            )
         else:
             self._impl = TerminalProgressBar(
-                total, prefix, suffix, decimals, length, fill
+                total, prefix, suffix, decimals, length, fill, minimum_interval
             )
 
     async def update(self, progress: int = 1):
@@ -202,11 +218,18 @@ class AsyncProgressBar:
 
 
 if __name__ == "__main__":
-    progressbar1 = AsyncProgressBar(100)
-    progressbar2 = AsyncProgressBar(100)
-
     # Reserve lines for the two progress bars at the start (after bars are created)
+    number_of_requests = 1000
+    rate_limiter = AsyncLimiter(300, 1)  # Limit to 1 request every 3 seconds
+
+    progressbar1 = AsyncProgressBar(
+        number_of_requests, prefix="Progress 1", suffix="Complete", minimum_interval=0.5
+    )
+    progressbar2 = AsyncProgressBar(
+        number_of_requests, prefix="Progress 2", suffix="Complete"
+    )
     print("\n" * (TerminalProgressBar._terminal_bar_count))
+
 
     async def request(i: int):
         await progressbar1.update(1)
@@ -214,7 +237,7 @@ if __name__ == "__main__":
         await progressbar2.update(1)
 
     async def main():
-        requests = [request(i) for i in range(20)]
+        requests = [request(i) for i in range(number_of_requests)]
         await asyncio.gather(*requests)
 
     if __name__ == "__main__":
