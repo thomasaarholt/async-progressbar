@@ -160,6 +160,8 @@ class NotebookProgressBar(BaseProgressBar):
         suffix: str = "",
         minimum_interval: float = 0.01,
     ):
+        # We keep ipywidgets and ipython imports here to
+        # allow usage of the library without them
         from ipywidgets import FloatProgress, Label, HBox
         from IPython.display import display
 
