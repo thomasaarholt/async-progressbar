@@ -24,11 +24,13 @@ class BaseProgressBar:
     def __init__(
         self,
         total: int,
+        leave: bool = True,
         prefix: str = "",
         suffix: str = "",
         minimum_interval: float = 0.1,
     ):
         self.total = total
+        self.leave = leave
         self.prefix = prefix
         self.suffix = suffix
         self.progress = 0
@@ -47,6 +49,9 @@ class BaseProgressBar:
             self.update_rate(now)
             await self.draw()
             self._last_update_time = now
+
+        if self.progress >= self.total:
+            await self.finish()
 
     def update_rate(self, now: float):
         """Update the rate monitor if minimum interval has passed."""
@@ -76,12 +81,13 @@ class TerminalProgressBar(BaseProgressBar):
     def __init__(
         self,
         total: int,
+        leave: bool = True,
         prefix: str = "",
         suffix: str = "",
         minimum_interval: float = 0.1,
         fill: str = "█",
     ):
-        super().__init__(total, prefix, suffix, minimum_interval)
+        super().__init__(total, leave, prefix, suffix, minimum_interval)
         self.fill = fill
         term_size = shutil.get_terminal_size()
         reserved = len(prefix) + len(suffix) + 12
@@ -129,6 +135,7 @@ class NotebookProgressBar(BaseProgressBar):
     def __init__(
         self,
         total: int,
+        leave: bool = True,
         prefix: str = "",
         suffix: str = "",
         minimum_interval: float = 0.01,
@@ -136,7 +143,7 @@ class NotebookProgressBar(BaseProgressBar):
         from ipywidgets import FloatProgress, Label, HBox
         from IPython.display import display
 
-        super().__init__(total, prefix, suffix, minimum_interval)
+        super().__init__(total, leave, prefix, suffix, minimum_interval)
 
         self.prefix_label: Label = Label(value=self.prefix)
         self.suffix_label: Label = Label(value=self.suffix)
@@ -151,7 +158,7 @@ class NotebookProgressBar(BaseProgressBar):
             value=f"{self.progress_bar.value} / {self.total} (0.00 it/s)",
             # layout={"width": "20%", "height": "30px"},
         )
-        self.widget = HBox(
+        self.widget: HBox = HBox(
             [self.prefix_label, self.progress_bar, self.textbox, self.suffix_label]
         )
         display(self.widget)
@@ -161,9 +168,11 @@ class NotebookProgressBar(BaseProgressBar):
         self.textbox.value = f"{self.progress_bar.value} / {self.total} ({self.rate:.2f} it/s)"
 
     async def finish(self):
-        pass
+        if not self.leave:
+            self.widget.close()
 
     async def reset(self):
+        self.widget.open()
         self.progress = 0
         self._last_update_time = 0.0
         self._last_update_progress = 0
@@ -184,6 +193,7 @@ class AsyncProgressBar:
     def __init__(
         self,
         total: int,
+        leave: bool = True,
         prefix: str = "",
         suffix: str = "",
         fill: str = "█",
@@ -199,10 +209,10 @@ class AsyncProgressBar:
             fill (str, optional): Character to use for the filled part of the bar. Defaults to "█".
         """
         if use_ipywidgets_progressbar():
-            self._impl = NotebookProgressBar(total, prefix, suffix, minimum_interval)
+            self._impl = NotebookProgressBar(total, leave, prefix, suffix, minimum_interval)
         else:
             self._impl = TerminalProgressBar(
-                total, prefix, suffix, minimum_interval, fill
+                total, leave, prefix, suffix, minimum_interval, fill
             )
 
     async def update(self, progress: int = 1):
