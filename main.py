@@ -130,16 +130,6 @@ class NotebookProgressBar(BaseProgressBar):
             # bar_style="info",
             # layout={"width": "60%"},
         )
-        self._minimum_interval = minimum_interval
-        self.prefix_label: Label = Label(value=self.prefix)
-        self.suffix_label: Label = Label(value=self.suffix)
-        self.progress_bar: FloatProgress = FloatProgress(
-            value=0,
-            min=0,
-            max=self.total,
-            # bar_style="info",
-            # layout={"width": "60%"},
-        )
         self.textbox: Label = Label(
             value=f"{self.progress_bar.value} / {self.total}",
             # layout={"width": "20%", "height": "30px"},
