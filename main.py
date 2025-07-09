@@ -115,7 +115,6 @@ class TerminalProgressBar(BaseProgressBar):
 
     async def finish(self):
         sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}B")
-        sys.stdout.write("\n")
         sys.stdout.flush()
 
 
@@ -257,7 +256,6 @@ if __name__ == "__main__":
     rate_limiter = aiolimiter.AsyncLimiter(500, 1)
     progressbar1 = AsyncProgressBar(number_of_requests)
     progressbar2 = AsyncProgressBar(number_of_requests)
-    # Reserve lines for the two progress bars at the start (after bars are created)
     # Reserve lines for the two progress bars at the start (after bars are created)
     print("\n" * (TerminalProgressBar._terminal_bar_count))
 
