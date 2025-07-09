@@ -43,6 +43,10 @@ class BaseProgressBar:
 
     async def update(self, progress: int = 1):
         "Update the progress bar if the minimum interval time has passed."
+        # Reserve lines on first update call
+        if not TerminalProgressBar._lines_reserved:
+            TerminalProgressBar.reserve_lines()
+            
         self.progress += progress
         now = time.time()
 
@@ -81,6 +85,7 @@ class BaseProgressBar:
 
 class TerminalProgressBar(BaseProgressBar):
     _terminal_bar_count = 0
+    _lines_reserved = False
 
     def __init__(
         self,
@@ -99,6 +104,15 @@ class TerminalProgressBar(BaseProgressBar):
         self.decimals = 1
         self._bar_line = TerminalProgressBar._terminal_bar_count
         TerminalProgressBar._terminal_bar_count += 1
+
+    @classmethod
+    def reserve_lines(cls, num_bars: int | None = None):
+        """Reserve lines in the terminal for multiple progress bars."""
+        if not cls._lines_reserved:
+            bars_to_reserve = num_bars if num_bars is not None else cls._terminal_bar_count
+            if bars_to_reserve > 0:
+                print("\n" * bars_to_reserve, end="")
+                cls._lines_reserved = True
 
     async def draw(self):
         percent = ("{0:." + str(self.decimals) + "f}").format(
@@ -252,13 +266,10 @@ class AsyncProgressBar:
 
 
 if __name__ == "__main__":
-    number_of_requests = 1000
-    rate_limiter = aiolimiter.AsyncLimiter(500, 1)
+    number_of_requests = 10000
+    rate_limiter = aiolimiter.AsyncLimiter(5000, 1)
     progressbar1 = AsyncProgressBar(number_of_requests)
     progressbar2 = AsyncProgressBar(number_of_requests)
-    # Reserve lines for the two progress bars at the start (after bars are created)
-    print("\n" * (TerminalProgressBar._terminal_bar_count))
-
     async def request(i: int):
         async with rate_limiter:
             await progressbar1.update(1)
@@ -271,4 +282,6 @@ if __name__ == "__main__":
 
 
     if __name__ == "__main__":
+        t1 = time.time()
         asyncio.run(main())
+        print(f"Total time: {time.time() - t1:.2f} seconds")
