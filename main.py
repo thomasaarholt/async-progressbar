@@ -6,6 +6,8 @@ from aiolimiter import AsyncLimiter
 import shutil
 import time
 
+import aiolimiter
+
 
 def use_ipywidgets_progressbar() -> bool:
     try:
@@ -92,7 +94,7 @@ class TerminalProgressBar(BaseProgressBar):
         super().__init__(total, leave, prefix, suffix, minimum_interval)
         self.fill = fill
         term_size = shutil.get_terminal_size()
-        reserved = len(prefix) + len(suffix) + 12
+        reserved = len(prefix) + len(suffix) + 40
         self.length = max(10, term_size.columns - reserved)
         self.decimals = 1
         self._bar_line = TerminalProgressBar._terminal_bar_count
@@ -105,29 +107,17 @@ class TerminalProgressBar(BaseProgressBar):
         filled_length = int(self.length * self.progress // self.total)
         bar = self.fill * filled_length + "-" * (self.length - filled_length)
         rate_str = f" ({self.rate:.2f} it/s)"
-        if self._bar_line is not None:
-            sys.stdout.write("\0337")
-            sys.stdout.write(
-                f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A"
-            )
-            sys.stdout.write(
-                f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}\033[K"
-            )
-            sys.stdout.write("\0338")
-            sys.stdout.flush()
-        else:
-            sys.stdout.write(
-                f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}"
-            )
-            sys.stdout.flush()
+        sys.stdout.write("\0337")
+        sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A")
+        sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}\033[K")
+        sys.stdout.write("\0338")
+        sys.stdout.flush()
 
     async def finish(self):
-        if self._bar_line is not None:
-            sys.stdout.write(
-                f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}B"
-            )
+        sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}B")
         sys.stdout.write("\n")
         sys.stdout.flush()
+
 
     async def reset(self):
         self.progress = 0
@@ -263,27 +253,24 @@ class AsyncProgressBar:
 
 
 if __name__ == "__main__":
-    # Reserve lines for the two progress bars at the start (after bars are created)
     number_of_requests = 1000
-    rate_limiter = AsyncLimiter(300, 1)  # Limit to 1 request every 3 seconds
-
-    progressbar1 = AsyncProgressBar(
-        number_of_requests, prefix="Progress 1", suffix="Complete", minimum_interval=0.5
-    )
-    progressbar2 = AsyncProgressBar(
-        number_of_requests, prefix="Progress 2", suffix="Complete"
-    )
+    rate_limiter = aiolimiter.AsyncLimiter(500, 1)
+    progressbar1 = AsyncProgressBar(number_of_requests)
+    progressbar2 = AsyncProgressBar(number_of_requests)
+    # Reserve lines for the two progress bars at the start (after bars are created)
+    # Reserve lines for the two progress bars at the start (after bars are created)
     print("\n" * (TerminalProgressBar._terminal_bar_count))
 
-
     async def request(i: int):
-        await progressbar1.update(1)
-        await asyncio.sleep(random.random())
-        await progressbar2.update(1)
+        async with rate_limiter:
+            await progressbar1.update(1)
+            await asyncio.sleep(random.random())
+            await progressbar2.update(1)
 
     async def main():
         requests = [request(i) for i in range(number_of_requests)]
         await asyncio.gather(*requests)
+
 
     if __name__ == "__main__":
         asyncio.run(main())
