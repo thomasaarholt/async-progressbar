@@ -34,17 +34,26 @@ class BaseProgressBar:
         self.progress = 0
         self._last_update_time = 0.0
         self._minimum_interval = minimum_interval
+        self._last_update_progress = 0
+        self._rate = 0.0
 
     async def update(self, progress: int = 1):
         "Update the progress bar if the minimum interval time has passed."
         self.progress += progress
         now = time.time()
-        if (
-            now - self._last_update_time >= self._minimum_interval
-            or self.progress >= self.total
-        ):
+        
+        if (now - self._last_update_time >= self._minimum_interval
+            or self.progress >= self.total):
+            self.update_rate(now)
             await self.draw()
             self._last_update_time = now
+
+    def update_rate(self, now: float):
+        """Update the rate monitor if minimum interval has passed."""
+        elapsed = now - self._last_update_time
+        progress_delta = self.progress - self._last_update_progress
+        self._rate = progress_delta / elapsed if elapsed > 0 else 0.0
+        self._last_update_progress = self.progress
 
     async def draw(self):
         raise NotImplementedError
@@ -54,6 +63,11 @@ class BaseProgressBar:
 
     async def reset(self):
         raise NotImplementedError
+
+    @property
+    def rate(self) -> float:
+        """Get the current rate of progress updates per second."""
+        return self._rate
 
 
 class TerminalProgressBar(BaseProgressBar):
@@ -82,16 +96,17 @@ class TerminalProgressBar(BaseProgressBar):
         )
         filled_length = int(self.length * self.progress // self.total)
         bar = self.fill * filled_length + "-" * (self.length - filled_length)
+        rate_str = f" ({self.rate:.2f} it/s)"
         if self._bar_line is not None:
             sys.stdout.write("\0337")
             sys.stdout.write(
                 f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A"
             )
-            sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}% {self.suffix}\033[K")
+            sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}\033[K")
             sys.stdout.write("\0338")
             sys.stdout.flush()
         else:
-            sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}% {self.suffix}")
+            sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}")
             sys.stdout.flush()
 
     async def finish(self):
@@ -105,6 +120,8 @@ class TerminalProgressBar(BaseProgressBar):
     async def reset(self):
         self.progress = 0
         self._last_update_time = 0.0
+        self._last_update_progress = 0
+        self._rate = 0.0
         await self.draw()
 
 
@@ -131,7 +148,7 @@ class NotebookProgressBar(BaseProgressBar):
             # layout={"width": "60%"},
         )
         self.textbox: Label = Label(
-            value=f"{self.progress_bar.value} / {self.total}",
+            value=f"{self.progress_bar.value} / {self.total} (0.00 it/s)",
             # layout={"width": "20%", "height": "30px"},
         )
         self.widget = HBox(
@@ -141,7 +158,7 @@ class NotebookProgressBar(BaseProgressBar):
 
     async def draw(self):
         self.progress_bar.value = self.progress
-        self.textbox.value = f"{self.progress_bar.value} / {self.total}"
+        self.textbox.value = f"{self.progress_bar.value} / {self.total} ({self.rate:.2f} it/s)"
 
     async def finish(self):
         pass
@@ -149,8 +166,10 @@ class NotebookProgressBar(BaseProgressBar):
     async def reset(self):
         self.progress = 0
         self._last_update_time = 0.0
+        self._last_update_progress = 0
+        self._rate = 0.0
         self.progress_bar.value = 0
-        self.textbox.value = f"0 / {self.total}"
+        self.textbox.value = f"0 / {self.total} (0.00 it/s)"
         await self.draw()
 
 
