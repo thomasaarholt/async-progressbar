@@ -43,9 +43,11 @@ class BaseProgressBar:
         "Update the progress bar if the minimum interval time has passed."
         self.progress += progress
         now = time.time()
-        
-        if (now - self._last_update_time >= self._minimum_interval
-            or self.progress >= self.total):
+
+        if (
+            now - self._last_update_time >= self._minimum_interval
+            or self.progress >= self.total
+        ):
             self.update_rate(now)
             await self.draw()
             self._last_update_time = now
@@ -108,11 +110,15 @@ class TerminalProgressBar(BaseProgressBar):
             sys.stdout.write(
                 f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A"
             )
-            sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}\033[K")
+            sys.stdout.write(
+                f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}\033[K"
+            )
             sys.stdout.write("\0338")
             sys.stdout.flush()
         else:
-            sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}")
+            sys.stdout.write(
+                f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}"
+            )
             sys.stdout.flush()
 
     async def finish(self):
@@ -165,7 +171,9 @@ class NotebookProgressBar(BaseProgressBar):
 
     async def draw(self):
         self.progress_bar.value = self.progress
-        self.textbox.value = f"{self.progress_bar.value} / {self.total} ({self.rate:.2f} it/s)"
+        self.textbox.value = (
+            f"{self.progress_bar.value} / {self.total} ({self.rate:.2f} it/s)"
+        )
 
     async def finish(self):
         if not self.leave:
@@ -209,10 +217,21 @@ class AsyncProgressBar:
             fill (str, optional): Character to use for the filled part of the bar. Defaults to "█".
         """
         if use_ipywidgets_progressbar():
-            self._impl = NotebookProgressBar(total, leave, prefix, suffix, minimum_interval)
+            self._impl = NotebookProgressBar(
+                total,
+                leave,
+                prefix,
+                suffix,
+                minimum_interval,
+            )
         else:
             self._impl = TerminalProgressBar(
-                total, leave, prefix, suffix, minimum_interval, fill
+                total,
+                leave,
+                prefix,
+                suffix,
+                minimum_interval,
+                fill,
             )
 
     async def update(self, progress: int = 1):
