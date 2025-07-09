@@ -8,6 +8,17 @@ import time
 
 import aiolimiter
 
+SAVE_CURSOR_POSITION = "\0337"
+RESTORE_CURSOR_POSITION = "\0338"
+MOVE_CURSOR_TO_LINE_START = "\r"
+CLEAR_LINE_FROM_CURSOR_TO_END = "\033[K"
+
+def move_cursor_up_lines(n: int) -> str:
+    return f"\033[{n}A"
+
+
+def move_cursor_down_lines(n: int) -> str:
+    return f"\033[{n}B"
 
 def use_ipywidgets_progressbar() -> bool:
     try:
@@ -121,16 +132,16 @@ class TerminalProgressBar(BaseProgressBar):
         filled_length = int(self.length * self.progress // self.total)
         bar = self.fill * filled_length + "-" * (self.length - filled_length)
         rate_str = f" ({self.rate:.2f} it/s)"
-        sys.stdout.write("\0337")
-        sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}A")
-        sys.stdout.write(f"\r{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}\033[K")
-        sys.stdout.write("\0338")
+
+        sys.stdout.write(f"{SAVE_CURSOR_POSITION}")
+        sys.stdout.write(f"{move_cursor_up_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}")
+        sys.stdout.write(f"{MOVE_CURSOR_TO_LINE_START}{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}{CLEAR_LINE_FROM_CURSOR_TO_END}")
+        sys.stdout.write(f"{RESTORE_CURSOR_POSITION}")
         sys.stdout.flush()
 
     async def finish(self):
-        sys.stdout.write(f"\033[{TerminalProgressBar._terminal_bar_count - self._bar_line}B")
+        sys.stdout.write(f"{move_cursor_down_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}")
         sys.stdout.flush()
-
 
     async def reset(self):
         self.progress = 0
@@ -280,7 +291,6 @@ if __name__ == "__main__":
     async def main():
         requests = [request(i) for i in range(number_of_requests)]
         await asyncio.gather(*requests)
-
 
     if __name__ == "__main__":
         t1 = time.time()
