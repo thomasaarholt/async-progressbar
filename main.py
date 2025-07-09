@@ -103,7 +103,7 @@ class NotebookProgressBar:
         length: int | None = None,
         minimum_interval: float = 0.1,
     ):
-        from ipywidgets import Output, FloatProgress, Label, HBox
+        from ipywidgets import FloatProgress, Label, HBox
         from IPython.display import display
 
         self.total = total
@@ -112,25 +112,21 @@ class NotebookProgressBar:
         self.decimals = decimals
         self.length = length if length is not None else 100
         self.progress = 0
-        self.output: Output = Output()
         self._last_update_time = 0.0
         self._minimum_interval = minimum_interval
-        with self.output:
-            self.output.clear_output(wait=True)
-            self.progress_bar = FloatProgress(
-                value=0.0,
-                min=0.0,
-                max=self.total,
-                bar_style="info",
-                layout={"width": "60%"},
-            )
-            self.textbox = Label(
-                value=f"{self.progress_bar.value} / {self.total}",
-                layout={"width": "20%", "height": "30px"},
-            )
-            self.widget = HBox([self.progress_bar, self.textbox])
-            display(self.widget)
-        display(self.output)
+        self.progress_bar: FloatProgress = FloatProgress(
+            value=0.0,
+            min=0.0,
+            max=self.total,
+            bar_style="info",
+            layout={"width": "60%"},
+        )
+        self.textbox: Label = Label(
+            value=f"{self.progress_bar.value} / {self.total}",
+            layout={"width": "20%", "height": "30px"},
+        )
+        self.widget = HBox([self.progress_bar, self.textbox])
+        display(self.widget)
 
     async def update(self, progress: int = 1):
         self.progress += progress
