@@ -4,6 +4,7 @@ import sys
 import asyncio
 from aiolimiter import AsyncLimiter
 import shutil
+import time
 
 
 def use_ipywidgets_progressbar() -> bool:
@@ -27,22 +28,17 @@ class TerminalProgressBar:
         total: int,
         prefix: str = "",
         suffix: str = "",
-        decimals: int = 1,
-        length: int | None = None,
         fill: str = "█",
         minimum_interval: float = 0.1,
     ):
         self.total = total
         self.prefix = prefix
         self.suffix = suffix
-        self.decimals = decimals
-        if length is None:
-            term_size = shutil.get_terminal_size()
-            reserved = len(prefix) + len(suffix) + 12
-            self.length = max(10, term_size.columns - reserved)
-        else:
-            self.length = length
         self.fill = fill
+        term_size = shutil.get_terminal_size()
+        reserved = len(prefix) + len(suffix) + 12
+        self.length = max(10, term_size.columns - reserved)
+        self.decimals = 1
         self.progress = 0
         self._bar_line = TerminalProgressBar._terminal_bar_count
         TerminalProgressBar._terminal_bar_count += 1
@@ -50,8 +46,6 @@ class TerminalProgressBar:
         self._minimum_interval = minimum_interval
 
     async def update(self, progress: int = 1):
-        import time
-
         self.progress += progress
         now = time.time()
         if (
@@ -99,9 +93,7 @@ class NotebookProgressBar:
         total: int,
         prefix: str = "",
         suffix: str = "",
-        decimals: int = 1,
-        length: int | None = None,
-        minimum_interval: float = 0.1,
+        minimum_interval: float = 0.01,
     ):
         from ipywidgets import FloatProgress, Label, HBox
         from IPython.display import display
@@ -109,33 +101,41 @@ class NotebookProgressBar:
         self.total = total
         self.prefix = prefix
         self.suffix = suffix
-        self.decimals = decimals
-        self.length = length if length is not None else 100
         self.progress = 0
         self._last_update_time = 0.0
         self._minimum_interval = minimum_interval
+        self.prefix_label: Label = Label(value=self.prefix)
+        self.suffix_label: Label = Label(value=self.suffix)
         self.progress_bar: FloatProgress = FloatProgress(
-            value=0.0,
-            min=0.0,
+            value=0,
+            min=0,
             max=self.total,
-            bar_style="info",
-            layout={"width": "60%"},
+            # bar_style="info",
+            # layout={"width": "60%"},
         )
         self.textbox: Label = Label(
             value=f"{self.progress_bar.value} / {self.total}",
-            layout={"width": "20%", "height": "30px"},
+            # layout={"width": "20%", "height": "30px"},
         )
-        self.widget = HBox([self.progress_bar, self.textbox])
+        self.widget = HBox(
+            [self.prefix_label, self.progress_bar, self.textbox, self.suffix_label]
+        )
         display(self.widget)
 
     async def update(self, progress: int = 1):
         self.progress += progress
-        self.progress_bar.value = self.progress
-        self.textbox.value = f"{self.progress_bar.value} / {self.total}"
-        await self.draw()
+        now = time.time()
+        if (
+            now - self._last_update_time >= self._minimum_interval
+            or self.progress >= self.total
+        ):
+            await self.draw()
+            self._last_update_time = now
 
     async def draw(self):
-        pass  # Jupyter widgets auto-update
+        self._last_update_time
+        self.progress_bar.value = self.progress
+        self.textbox.value = f"{self.progress_bar.value} / {self.total}"
 
     async def finish(self):
         pass  # Optionally update style or finalize
@@ -160,8 +160,6 @@ class AsyncProgressBar:
         total: int,
         prefix: str = "",
         suffix: str = "",
-        decimals: int = 1,
-        length: int | None = None,
         fill: str = "█",
         minimum_interval: float = 0.1,
     ):
@@ -172,17 +170,13 @@ class AsyncProgressBar:
             total (int): The total number of items to track.
             prefix (str, optional): Prefix string for the progress bar. Defaults to "".
             suffix (str, optional): Suffix string for the progress bar. Defaults to "".
-            decimals (int, optional): Number of decimals to display for percentage. Defaults to 1.
-            length (int | None, optional): Length of the progress bar. Defaults to None (auto).
             fill (str, optional): Character to use for the filled part of the bar. Defaults to "█".
         """
         if use_ipywidgets_progressbar():
-            self._impl = NotebookProgressBar(
-                total, prefix, suffix, decimals, length, minimum_interval
-            )
+            self._impl = NotebookProgressBar(total, prefix, suffix, minimum_interval)
         else:
             self._impl = TerminalProgressBar(
-                total, prefix, suffix, decimals, length, fill, minimum_interval
+                total, prefix, suffix, fill, minimum_interval
             )
 
     async def update(self, progress: int = 1):
