@@ -275,6 +275,7 @@ if __name__ == "__main__":
             await progressbar1.update(1)
             await asyncio.sleep(random.random())
             await progressbar2.update(1)
+            return i
 
     async def main():
         requests = [request(i) for i in range(number_of_requests)]
