@@ -2,7 +2,6 @@ from __future__ import annotations
 import random
 import sys
 import asyncio
-from aiolimiter import AsyncLimiter
 import shutil
 import time
 
@@ -13,12 +12,14 @@ RESTORE_CURSOR_POSITION = "\0338"
 MOVE_CURSOR_TO_LINE_START = "\r"
 CLEAR_LINE_FROM_CURSOR_TO_END = "\033[K"
 
+
 def move_cursor_up_lines(n: int) -> str:
     return f"\033[{n}A"
 
 
 def move_cursor_down_lines(n: int) -> str:
     return f"\033[{n}B"
+
 
 def use_ipywidgets_progressbar() -> bool:
     try:
@@ -57,7 +58,7 @@ class BaseProgressBar:
         # Reserve lines on first update call
         if not TerminalProgressBar._lines_reserved:
             TerminalProgressBar.reserve_lines()
-            
+
         self.progress += progress
         now = time.time()
 
@@ -120,7 +121,9 @@ class TerminalProgressBar(BaseProgressBar):
     def reserve_lines(cls, num_bars: int | None = None):
         """Reserve lines in the terminal for multiple progress bars."""
         if not cls._lines_reserved:
-            bars_to_reserve = num_bars if num_bars is not None else cls._terminal_bar_count
+            bars_to_reserve = (
+                num_bars if num_bars is not None else cls._terminal_bar_count
+            )
             if bars_to_reserve > 0:
                 print("\n" * bars_to_reserve, end="")
                 cls._lines_reserved = True
@@ -134,13 +137,19 @@ class TerminalProgressBar(BaseProgressBar):
         rate_str = f" ({self.rate:.2f} it/s)"
 
         sys.stdout.write(f"{SAVE_CURSOR_POSITION}")
-        sys.stdout.write(f"{move_cursor_up_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}")
-        sys.stdout.write(f"{MOVE_CURSOR_TO_LINE_START}{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}{CLEAR_LINE_FROM_CURSOR_TO_END}")
+        sys.stdout.write(
+            f"{move_cursor_up_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}"
+        )
+        sys.stdout.write(
+            f"{MOVE_CURSOR_TO_LINE_START}{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}{CLEAR_LINE_FROM_CURSOR_TO_END}"
+        )
         sys.stdout.write(f"{RESTORE_CURSOR_POSITION}")
         sys.stdout.flush()
 
     async def finish(self):
-        sys.stdout.write(f"{move_cursor_down_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}")
+        sys.stdout.write(
+            f"{move_cursor_down_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}"
+        )
         sys.stdout.flush()
 
     async def reset(self):
@@ -283,6 +292,7 @@ if __name__ == "__main__":
     rate_limiter = aiolimiter.AsyncLimiter(5000, 1)
     progressbar1 = AsyncProgressBar(number_of_requests)
     progressbar2 = AsyncProgressBar(number_of_requests)
+
     async def request(i: int):
         async with rate_limiter:
             await progressbar1.update(1)
