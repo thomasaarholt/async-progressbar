@@ -5,8 +5,6 @@ import asyncio
 import shutil
 import time
 
-import aiolimiter
-
 SAVE_CURSOR_POSITION = "\0337"
 RESTORE_CURSOR_POSITION = "\0338"
 MOVE_CURSOR_TO_LINE_START = "\r"
@@ -43,20 +41,20 @@ class BaseProgressBar:
         suffix: str = "",
         minimum_interval: float = 0.1,
     ):
-        self.total = total
-        self.leave = leave
-        self.prefix = prefix
-        self.suffix = suffix
-        self.progress = 0
-        self._last_update_time = 0.0
-        self._minimum_interval = minimum_interval
-        self._last_update_progress = 0
-        self._rate = 0.0
+        self.total: float = total
+        self.leave: bool = leave
+        self.prefix: str = prefix
+        self.suffix: str = suffix
+        self.progress: int = 0
+        self._last_update_time: float = 0.0
+        self._minimum_interval: float = minimum_interval
+        self._last_update_progress: int = 0
+        self._rate: float = 0.0
 
     async def update(self, progress: int = 1):
         "Update the progress bar if the minimum interval time has passed."
         # Reserve lines on first update call
-        if not TerminalProgressBar._lines_reserved:
+        if not TerminalProgressBar.lines_reserved:
             TerminalProgressBar.reserve_lines()
 
         self.progress += progress
@@ -80,13 +78,13 @@ class BaseProgressBar:
         self._rate = progress_delta / elapsed if elapsed > 0 else 0.0
         self._last_update_progress = self.progress
 
-    async def draw(self):
+    async def draw(self) -> None:
         raise NotImplementedError
 
-    async def finish(self):
+    async def finish(self) -> None:
         raise NotImplementedError
 
-    async def reset(self):
+    async def reset(self) -> None:
         raise NotImplementedError
 
     @property
@@ -96,8 +94,8 @@ class BaseProgressBar:
 
 
 class TerminalProgressBar(BaseProgressBar):
-    _terminal_bar_count = 0
-    _lines_reserved = False
+    terminal_bar_count: int = 0
+    lines_reserved: bool = False
 
     def __init__(
         self,
@@ -109,24 +107,24 @@ class TerminalProgressBar(BaseProgressBar):
         fill: str = "█",
     ):
         super().__init__(total, leave, prefix, suffix, minimum_interval)
-        self.fill = fill
+        self.fill: str = fill
         term_size = shutil.get_terminal_size()
         reserved = len(prefix) + len(suffix) + 40
-        self.length = max(10, term_size.columns - reserved)
-        self.decimals = 1
-        self._bar_line = TerminalProgressBar._terminal_bar_count
-        TerminalProgressBar._terminal_bar_count += 1
+        self.length: int = max(10, term_size.columns - reserved)
+        self.decimals: int = 1
+        self._bar_line: int = TerminalProgressBar.terminal_bar_count
+        TerminalProgressBar.terminal_bar_count += 1
 
     @classmethod
     def reserve_lines(cls, num_bars: int | None = None):
         """Reserve lines in the terminal for multiple progress bars."""
-        if not cls._lines_reserved:
+        if not cls.lines_reserved:
             bars_to_reserve = (
-                num_bars if num_bars is not None else cls._terminal_bar_count
+                num_bars if num_bars is not None else cls.terminal_bar_count
             )
             if bars_to_reserve > 0:
                 print("\n" * bars_to_reserve, end="")
-                cls._lines_reserved = True
+                cls.lines_reserved = True
 
     async def draw(self):
         percent = ("{0:." + str(self.decimals) + "f}").format(
@@ -136,21 +134,21 @@ class TerminalProgressBar(BaseProgressBar):
         bar = self.fill * filled_length + "-" * (self.length - filled_length)
         rate_str = f" ({self.rate:.2f} it/s)"
 
-        sys.stdout.write(f"{SAVE_CURSOR_POSITION}")
-        sys.stdout.write(
-            f"{move_cursor_up_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}"
+        _ = sys.stdout.write(f"{SAVE_CURSOR_POSITION}")
+        _ = sys.stdout.write(
+            f"{move_cursor_up_lines(TerminalProgressBar.terminal_bar_count - self._bar_line)}"
         )
-        sys.stdout.write(
+        _ = sys.stdout.write(
             f"{MOVE_CURSOR_TO_LINE_START}{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}{CLEAR_LINE_FROM_CURSOR_TO_END}"
         )
-        sys.stdout.write(f"{RESTORE_CURSOR_POSITION}")
-        sys.stdout.flush()
+        _ = sys.stdout.write(f"{RESTORE_CURSOR_POSITION}")
+        _ = sys.stdout.flush()
 
     async def finish(self):
-        sys.stdout.write(
-            f"{move_cursor_down_lines(TerminalProgressBar._terminal_bar_count - self._bar_line)}"
+        _ = sys.stdout.write(
+            f"{move_cursor_down_lines(TerminalProgressBar.terminal_bar_count - self._bar_line)}"
         )
-        sys.stdout.flush()
+        _ = sys.stdout.flush()
 
     async def reset(self):
         self.progress = 0
@@ -190,9 +188,14 @@ class NotebookProgressBar(BaseProgressBar):
             # layout={"width": "20%", "height": "30px"},
         )
         self.widget: HBox = HBox(
-            [self.prefix_label, self.progress_bar, self.textbox, self.suffix_label]
+            [
+                self.prefix_label,
+                self.progress_bar,
+                self.textbox,
+                self.suffix_label,
+            ]
         )
-        display(self.widget)
+        _ = display(self.widget)
 
     async def draw(self):
         self.progress_bar.value = self.progress
@@ -222,6 +225,8 @@ class AsyncProgressBar:
     This class provides a unified async progress bar interface for both terminal and Jupyter environments.
     It automatically selects the appropriate implementation based on the environment.
     """
+
+    _impl: NotebookProgressBar | TerminalProgressBar
 
     def __init__(
         self,
@@ -288,6 +293,8 @@ class AsyncProgressBar:
 
 
 if __name__ == "__main__":
+    import aiolimiter
+
     number_of_requests = 10000
     rate_limiter = aiolimiter.AsyncLimiter(5000, 1)
     progressbar1 = AsyncProgressBar(number_of_requests)
@@ -302,7 +309,7 @@ if __name__ == "__main__":
 
     async def main():
         requests = [request(i) for i in range(number_of_requests)]
-        await asyncio.gather(*requests)
+        _ = await asyncio.gather(*requests)
 
     if __name__ == "__main__":
         t1 = time.time()

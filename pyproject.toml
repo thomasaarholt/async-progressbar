@@ -18,3 +18,11 @@ dev = [
     "ruff>=0.12.2",
     "tqdm>=4.67.1",
 ]
+
+[tool.basedpyright]
+reportImplicitOverride = false
+reportUnannotatedClassAttribute = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportMissingTypeStubs = false
+
