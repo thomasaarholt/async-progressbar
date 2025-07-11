@@ -134,21 +134,21 @@ class TerminalProgressBar(BaseProgressBar):
         bar = self.fill * filled_length + "-" * (self.length - filled_length)
         rate_str = f" ({self.rate:.2f} it/s)"
 
-        _ = sys.stdout.write(f"{SAVE_CURSOR_POSITION}")
-        _ = sys.stdout.write(
+        sys.stdout.write(f"{SAVE_CURSOR_POSITION}")
+        sys.stdout.write(
             f"{move_cursor_up_lines(TerminalProgressBar.terminal_bar_count - self._bar_line)}"
         )
-        _ = sys.stdout.write(
+        sys.stdout.write(
             f"{MOVE_CURSOR_TO_LINE_START}{self.prefix} |{bar}| {percent}%{rate_str} {self.suffix}{CLEAR_LINE_FROM_CURSOR_TO_END}"
         )
-        _ = sys.stdout.write(f"{RESTORE_CURSOR_POSITION}")
-        _ = sys.stdout.flush()
+        sys.stdout.write(f"{RESTORE_CURSOR_POSITION}")
+        sys.stdout.flush()
 
     async def finish(self):
-        _ = sys.stdout.write(
+        sys.stdout.write(
             f"{move_cursor_down_lines(TerminalProgressBar.terminal_bar_count - self._bar_line)}"
         )
-        _ = sys.stdout.flush()
+        sys.stdout.flush()
 
     async def reset(self):
         self.progress = 0
@@ -187,15 +187,13 @@ class NotebookProgressBar(BaseProgressBar):
             value=f"{self.progress_bar.value} / {self.total} (0.00 it/s)",
             # layout={"width": "20%", "height": "30px"},
         )
-        self.widget: HBox = HBox(
-            [
-                self.prefix_label,
-                self.progress_bar,
-                self.textbox,
-                self.suffix_label,
-            ]
-        )
-        _ = display(self.widget)
+        self.widget: HBox = HBox([
+            self.prefix_label,
+            self.progress_bar,
+            self.textbox,
+            self.suffix_label,
+        ])
+        display(self.widget)
 
     async def draw(self):
         self.progress_bar.value = self.progress
@@ -309,7 +307,7 @@ if __name__ == "__main__":
 
     async def main():
         requests = [request(i) for i in range(number_of_requests)]
-        _ = await asyncio.gather(*requests)
+        await asyncio.gather(*requests)
 
     if __name__ == "__main__":
         t1 = time.time()

@@ -25,4 +25,4 @@ reportUnannotatedClassAttribute = false
 reportUnknownMemberType = false
 reportUnknownVariableType = false
 reportMissingTypeStubs = false
-
+reportUnusedCallResult = false
