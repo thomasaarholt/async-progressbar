@@ -180,12 +180,9 @@ class NotebookProgressBar(BaseProgressBar):
             value=0,
             min=0,
             max=self.total,
-            # bar_style="info",
-            # layout={"width": "60%"},
         )
         self.textbox: Label = Label(
             value=f"{self.progress_bar.value} / {self.total} (0.00 it/s)",
-            # layout={"width": "20%", "height": "30px"},
         )
         self.widget: HBox = HBox([
             self.prefix_label,
@@ -240,9 +237,10 @@ class AsyncProgressBar:
 
         Args:
             total (int): The total number of items to track.
-            prefix (str, optional): Prefix string for the progress bar. Defaults to "".
-            suffix (str, optional): Suffix string for the progress bar. Defaults to "".
-            fill (str, optional): Character to use for the filled part of the bar. Defaults to "█".
+            prefix (str): Prefix string for the progress bar. Defaults to "".
+            suffix (str): Suffix string for the progress bar. Defaults to "".
+            fill (str): Character to use for the filled part of the bar. Defaults to "█".
+            minimum_interval (float): Minimum time interval between updates in seconds. Defaults to 0.1.
         """
         if use_ipywidgets_progressbar():
             self._impl = NotebookProgressBar(
