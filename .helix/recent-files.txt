@@ -1,0 +1,2 @@
+"/Users/thomas/.config/helix/config.toml"
+"/Users/thomas/.config/helix/languages.toml"
