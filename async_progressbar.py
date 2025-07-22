@@ -307,7 +307,7 @@ if __name__ == "__main__":
         requests = [request(i) for i in range(number_of_requests)]
         await asyncio.gather(*requests)
 
-    if __name__ == "__main__":
-        t1 = time.time()
-        asyncio.run(main())
-        print(f"Total time: {time.time() - t1:.2f} seconds")
+    print("Let's test the async progressbar!")
+    t1 = time.time()
+    asyncio.run(main())
+    print(f"Total time: {time.time() - t1:.2f} seconds")
