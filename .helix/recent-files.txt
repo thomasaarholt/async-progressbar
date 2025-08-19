@@ -1,4 +1,0 @@
-"/Users/thomas/repos/async-progressbar/async_progressbar.py"
-"/Users/thomas/repos/async-progressbar/pyproject.toml"
-"/Users/thomas/.config/helix/config.toml"
-"/Users/thomas/.config/helix/languages.toml"
