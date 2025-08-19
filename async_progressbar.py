@@ -273,7 +273,7 @@ class AsyncProgressBar:
         suffix: str = "",
         fill: str = "█",
         minimum_interval: float = 0.1,
-        unit: Literal["s", "min"] = "s",
+        unit: Literal["s", "min"] = "min",
     ):
         """
         Initialize the AsyncProgressBar.
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     number_of_requests = 10000
     rate_limiter = aiolimiter.AsyncLimiter(3000, 1)
     progressbar1 = AsyncProgressBar(number_of_requests)
-    progressbar2 = AsyncProgressBar(number_of_requests, unit="min")
+    progressbar2 = AsyncProgressBar(number_of_requests, unit="s")
 
     async def request(i: int):
         async with rate_limiter:
