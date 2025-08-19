@@ -5,6 +5,7 @@ import sys
 import asyncio
 import shutil
 import time
+from typing import Literal
 
 SAVE_CURSOR_POSITION = "\0337"
 RESTORE_CURSOR_POSITION = "\0338"
@@ -41,6 +42,7 @@ class BaseProgressBar:
         prefix: str = "",
         suffix: str = "",
         minimum_interval: float = 0.1,
+        unit: Literal["s", "min"] = "s",
     ):
         self.total: float = total
         self.leave: bool = leave
@@ -50,8 +52,9 @@ class BaseProgressBar:
         self._last_update_time: float = 0.0
         self._minimum_interval: float = minimum_interval
         self._last_update_progress: int = 0
-        self._rate: float = 0.0
+        self._rate: float = 0.0  # internal: items / second
         self._start_time: float | None = None
+        self.unit: Literal["s", "min"] = unit
 
     async def update(self, progress: int = 1):
         "Update the progress bar if the minimum interval time has passed."
@@ -107,7 +110,16 @@ class BaseProgressBar:
 
     @property
     def rate(self) -> float:
-        """Get the current rate of progress updates per second."""
+        """Get the current rate of progress updates per second (internal)."""
+        return self._rate
+
+    @property
+    def display_rate(self) -> float:
+        """Rate converted for the configured unit (items per unit)."""
+        if self.unit == "s":
+            return self._rate
+        elif self.unit == "min":
+            return self._rate * 60.0
         return self._rate
 
     @staticmethod
@@ -128,8 +140,9 @@ class TerminalProgressBar(BaseProgressBar):
         suffix: str = "",
         minimum_interval: float = 0.1,
         fill: str = "█",
+        unit: Literal["s", "min"] = "s",
     ):
-        super().__init__(total, leave, prefix, suffix, minimum_interval)
+        super().__init__(total, leave, prefix, suffix, minimum_interval, unit)
         self.fill: str = fill
         term_size = shutil.get_terminal_size()
         reserved = len(prefix) + len(suffix) + len(str(total)) + 40
@@ -152,7 +165,8 @@ class TerminalProgressBar(BaseProgressBar):
     async def draw(self):
         filled_length = int(self.bar_length * self.progress // self.total)
         bar = self.fill * filled_length + "-" * (self.bar_length - filled_length)
-        rate_str = f" ({self.rate:.2f} it/s)"
+        rate_unit = f"it/{self.unit}"
+        rate_str = f" ({self.display_rate:.2f} {rate_unit})"
         elapsed_str = BaseProgressBar.format_time(self.elapsed)
         remaining_str = BaseProgressBar.format_time(self.remaining) if self.progress > 0 else "00:00"
 
@@ -188,13 +202,14 @@ class NotebookProgressBar(BaseProgressBar):
         prefix: str = "",
         suffix: str = "",
         minimum_interval: float = 0.01,
+        unit: Literal["s", "min"] = "s",
     ):
         # We keep ipywidgets and ipython imports here to
         # allow usage of the library without them
         from ipywidgets import IntProgress, Label, HBox
         from IPython.display import display
 
-        super().__init__(total, leave, prefix, suffix, minimum_interval)
+        super().__init__(total, leave, prefix, suffix, minimum_interval, unit)
 
         self.prefix_label: Label = Label(value=self.prefix)
         self.suffix_label: Label = Label(value=self.suffix)
@@ -203,8 +218,9 @@ class NotebookProgressBar(BaseProgressBar):
             min=0,
             max=self.total,
         )
+        rate_unit = f"it/{self.unit}"
         self.textbox: Label = Label(
-            value=f"{self.progress_bar.value} / {self.total} (0.00 it/s)",
+            value=f"{self.progress_bar.value} / {self.total} (0.00 {rate_unit})",
             style={'font_family': "'Fira Code', monospace"},
         )
         self.widget: HBox = HBox([
@@ -219,8 +235,9 @@ class NotebookProgressBar(BaseProgressBar):
         self.progress_bar.value = self.progress
         elapsed_str = BaseProgressBar.format_time(self.elapsed)
         remaining_str = BaseProgressBar.format_time(self.remaining) if self.progress > 0 else "00:00"
+        rate_unit = f"it/{self.unit}"
         self.textbox.value = (
-            f"{self.progress_bar.value}/{self.total} {elapsed_str}<{remaining_str} ({self.rate:.2f} it/s)"
+            f"{self.progress_bar.value}/{self.total} {elapsed_str}<{remaining_str} ({self.display_rate:.2f} {rate_unit})"
         )
 
     async def finish(self):
@@ -256,6 +273,7 @@ class AsyncProgressBar:
         suffix: str = "",
         fill: str = "█",
         minimum_interval: float = 0.1,
+        unit: Literal["s", "min"] = "s",
     ):
         """
         Initialize the AsyncProgressBar.
@@ -266,6 +284,7 @@ class AsyncProgressBar:
             suffix (str): Suffix string for the progress bar. Defaults to "".
             fill (str): Character to use for the filled part of the bar. Defaults to "█".
             minimum_interval (float): Minimum time interval between updates in seconds. Defaults to 0.1.
+            unit (Literal['s','min']): Unit for rate display (items per second or per minute). Defaults to 's'.
         """
         if use_ipywidgets_progressbar():
             self._impl = NotebookProgressBar(
@@ -274,6 +293,7 @@ class AsyncProgressBar:
                 prefix,
                 suffix,
                 minimum_interval,
+                unit,
             )
         else:
             self._impl = TerminalProgressBar(
@@ -283,6 +303,7 @@ class AsyncProgressBar:
                 suffix,
                 minimum_interval,
                 fill,
+                unit,
             )
 
     async def update(self, progress: int = 1):
@@ -319,7 +340,7 @@ if __name__ == "__main__":
     number_of_requests = 10000
     rate_limiter = aiolimiter.AsyncLimiter(3000, 1)
     progressbar1 = AsyncProgressBar(number_of_requests)
-    progressbar2 = AsyncProgressBar(number_of_requests)
+    progressbar2 = AsyncProgressBar(number_of_requests, unit="min")
 
     async def request(i: int):
         async with rate_limiter:
